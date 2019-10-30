@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initObserveAble() {
-        mViewModel.currentWeatherLiveData?.observe(this, Observer { weather ->
+        mViewModel.currentWeatherLiveData.observe(this, Observer { weather ->
             weather?.let {
                 mViewModel.setCurrentWeather(it)
             }

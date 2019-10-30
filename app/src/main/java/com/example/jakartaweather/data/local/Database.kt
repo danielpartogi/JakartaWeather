@@ -17,7 +17,7 @@ import com.example.jakartaweather.data.local.entity.WeatherDataHourlyEntity
         WeatherDataCurrentEntity::class,
         WeatherDataHourlyEntity::class,
         WeatherDataDailyEntity::class
-    ], version = 12
+    ], version = 15
 )
 @TypeConverters(TypeConverterWeather::class)
 abstract class WeatherRoomDatabase : RoomDatabase() {

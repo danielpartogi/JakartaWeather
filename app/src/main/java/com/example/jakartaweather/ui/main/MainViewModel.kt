@@ -42,25 +42,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         WeatherRoomDatabase.getDatabase(application.applicationContext).weatherHourlyDao()
     private val dailyDAO: WeatherDailyDAO =
         WeatherRoomDatabase.getDatabase(application.applicationContext).weatherDailyDao()
-
-    private val currentRepository: CurrentWeatherRepository = CurrentWeatherRepository(currentDao)
-    private val hourlyRepository: HourlyWeatherRepository = HourlyWeatherRepository(hourlyDao)
-    private val dailyRepository: DailyWeatherRepository = DailyWeatherRepository(dailyDAO)
-
-    val currentWeatherLiveData: LiveData<WeatherDataCurrentEntity>? =
-        currentRepository.currentWeather
-    val hourlyWeatherLiveData: LiveData<List<WeatherDataHourlyEntity>> =
-        hourlyRepository.hourlyWeather
-    val dailyWeatherLiveData: LiveData<List<WeatherDataDailyEntity>> =
-        dailyRepository.dailyWeather
-
     private val indonesia = Locale("id", "ID", "ID")
     private val simpleDateFormat = SimpleDateFormat(
         CommonCons.DATE_FORMAT, indonesia
     )
 
+    private lateinit var currentRepository: CurrentWeatherRepository
+    private lateinit var hourlyRepository: HourlyWeatherRepository
+    private lateinit var dailyRepository: DailyWeatherRepository
+
+    lateinit var currentWeatherLiveData: LiveData<WeatherDataCurrentEntity>
+    lateinit var hourlyWeatherLiveData: LiveData<List<WeatherDataHourlyEntity>>
+    lateinit var dailyWeatherLiveData: LiveData<List<WeatherDataDailyEntity>>
+
+
     init {
         simpleDateFormat.timeZone = TimeZone.getTimeZone(CommonCons.DATE_TIMEZONE)
+        CoroutineScope(Dispatchers.IO).launch {
+            currentRepository = CurrentWeatherRepository(currentDao)
+            hourlyRepository = HourlyWeatherRepository(hourlyDao)
+            dailyRepository = DailyWeatherRepository(dailyDAO)
+
+            currentWeatherLiveData = currentRepository.currentWeather
+            hourlyWeatherLiveData = hourlyRepository.hourlyWeather
+            dailyWeatherLiveData = dailyRepository.dailyWeather
+
+        }
     }
 
 
@@ -68,35 +75,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 val currentWeather = currentRepository.getCurrentWeather()
-                val hourlyWeather = hourlyRepository.getHourlyWeather()
-                val dailyWeather = dailyRepository.getDailyWeather()
-
-                val date = hourlyWeather.list.map {
-                    SimpleDateFormat(
-                        "hh a", Locale.ENGLISH
-                    ).format(it.dateTime * 1000)
-                }
-
-                val days = dailyWeather.list.map {
-                    SimpleDateFormat(
-                        "EEEE", indonesia
-                    ).format(it.dateTime * 1000)
-                }
-
-                for (x in 0 until date.count()) {
-                    hourlyWeather.list[x].id = date[x]
-                }
-
-                for (x in 0 until date.count()) {
-                    dailyWeather.list[x].id = days[x]
-                }
-
                 insertCurrentWeather(currentWeather)
-                insertHourlyWeather(hourlyWeather.list)
-                insertDailyWeather(dailyWeather.list)
+
+                getHourlyWeather()
             } catch (e: Exception) {
                 Log.d("error", e.message ?: "")
             }
+        }
+    }
+
+    suspend fun getHourlyWeather() {
+        try {
+            val hourlyWeather = hourlyRepository.getHourlyWeather()
+            val date = hourlyWeather.list.map {
+                SimpleDateFormat(
+                    "hh a", Locale.ENGLISH
+                ).format(it.dateTime * 1000)
+            }
+            for (x in 0 until date.count()) {
+                hourlyWeather.list[x].id = date[x]
+            }
+            insertHourlyWeather(hourlyWeather.list)
+            getDailyWeather()
+        } catch (e: Exception) {
+            Log.d("error", e.message ?: "")
+        }
+    }
+
+    suspend fun getDailyWeather() {
+        try {
+            val dailyWeather = dailyRepository.getDailyWeather()
+            val days = dailyWeather.list.map {
+                SimpleDateFormat(
+                    "EEEE", indonesia
+                ).format(it.dateTime * 1000)
+            }
+
+            for (x in 0 until days.count()) {
+                dailyWeather.list[x].id = days[x]
+            }
+
+            insertDailyWeather(dailyWeather.list)
+        } catch (e: Exception) {
+            Log.d("error", e.message ?: "")
         }
     }
 
